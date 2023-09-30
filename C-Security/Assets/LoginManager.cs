@@ -115,6 +115,13 @@ public class LoginManager : MonoBehaviour
             _passwordMissmatchErrorText.text = "First Login. Need to change password";
         }
 
+
+        if (HasDatePassed(_userName.text))
+        {
+            UnlockNewPasswordInputs();
+            _passwordMissmatchErrorText.text = "Password expired. Need to change";
+        }
+
         if (p_userType == TypeOfUser.User)
         {
             _adminPanel.SetActive(false);
@@ -149,7 +156,6 @@ public class LoginManager : MonoBehaviour
         _setDayLimit.onClick.RemoveAllListeners();
         _passwordRestriction.onValueChanged.RemoveAllListeners();
 
-
         _listOfUsers.AddOptions(options);
         _listOfUsers.onValueChanged.AddListener(SelectUser);
 
@@ -176,7 +182,12 @@ public class LoginManager : MonoBehaviour
 
     private void SetDayLimit()
     {
-        PlayerPrefs.SetInt(_selectedUser + "days", int.Parse(_numberOfDays.text));
+        int daysToAdd = int.Parse(_numberOfDays.text);
+
+        DateTime futureDate = DateTime.Now.AddDays(daysToAdd);
+
+        string formattedDate = futureDate.Day + "-" + futureDate.Month;
+        PlayerPrefs.SetString(_selectedUser + "LimitDate", formattedDate);
     }
 
     private void BlockUser()
@@ -245,6 +256,15 @@ public class LoginManager : MonoBehaviour
         else
         {
             _blockUser.image.color = Color.red;
+        }
+
+        if (PlayerPrefs.GetInt(_selectedUser + "restrictions") == 1)
+        {
+            _passwordRestriction.isOn = true;
+        }
+        else
+        { 
+            _passwordRestriction.isOn = false;
         }
     }
 
@@ -377,6 +397,27 @@ public class LoginManager : MonoBehaviour
         byte[] hashBytes = sha256.ComputeHash(bytes);
 
         return BitConverter.ToString(hashBytes).Replace("-", "").ToLower();
+    }
+
+    private bool HasDatePassed(string p_username)
+    {
+        string savedDateString = PlayerPrefs.GetString(p_username + "LimitDate", "");
+
+        if (string.IsNullOrEmpty(savedDateString))
+            return false;
+
+        string[] parts = savedDateString.Split('-');
+        if (parts.Length != 2) return false; 
+
+        int savedDay = int.Parse(parts[0]);
+        int savedMonth = int.Parse(parts[1]);
+
+        DateTime savedDate = new DateTime(DateTime.Now.Year, savedMonth, savedDay);
+
+        if (DateTime.Now.Date >= savedDate.Date)
+            return true; 
+
+        return false; 
     }
 
     private bool CheckPasswordRestrictions(string p_password)
