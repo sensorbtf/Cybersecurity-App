@@ -52,9 +52,9 @@ public class LoginManager : MonoBehaviour
         RegisterNewUser("ADMIN", "test123", true);
         _loginButton.onClick.AddListener(TryToLogin);
 
-        _changePasswordFieldGo.SetActive(false);
-        _confirmPasswordFieldGo.SetActive(false);
-        _confirmChangePasswordButtonGo.SetActive(false);
+        //_changePasswordFieldGo.SetActive(false);
+        //_confirmPasswordFieldGo.SetActive(false);
+        //_confirmChangePasswordButtonGo.SetActive(false);
         _userAfterLoggedIn.SetActive(false);
         _adminPanel.SetActive(false);
         _loginPanel.SetActive(true);
@@ -103,22 +103,21 @@ public class LoginManager : MonoBehaviour
         _userAfterLoggedIn.SetActive(true);
         _loginPanel.SetActive(false);
 
-        _changePasswordButton.onClick.RemoveAllListeners();
+        //_changePasswordButton.onClick.RemoveAllListeners();
+        //_changePasswordButton.onClick.AddListener(UnlockNewPasswordInputs);
+        UnlockNewPasswordInputs();
         _logoutButton.onClick.RemoveAllListeners();
         
-        _changePasswordButton.onClick.AddListener(UnlockNewPasswordInputs);
         _logoutButton.onClick.AddListener(BackToLoginPanel);
 
         if (PlayerPrefs.GetInt(_userName.text + "firstLogin") == 1)
         {
-            UnlockNewPasswordInputs();
             _passwordMissmatchErrorText.text = "First Login. Need to change password";
         }
 
 
         if (HasDatePassed(_userName.text))
         {
-            UnlockNewPasswordInputs();
             _passwordMissmatchErrorText.text = "Password expired. Need to change";
         }
 
@@ -278,9 +277,9 @@ public class LoginManager : MonoBehaviour
 
     private void UnlockNewPasswordInputs()
     {
-        _changePasswordFieldGo.SetActive(true);
-        _confirmPasswordFieldGo.SetActive(true);
-        _confirmChangePasswordButtonGo.SetActive(true);
+        //_changePasswordFieldGo.SetActive(true);
+        //_confirmPasswordFieldGo.SetActive(true);
+        //_confirmChangePasswordButtonGo.SetActive(true);
 
         _confirmChangePasswordButton.onClick.RemoveAllListeners();
         _confirmChangePasswordButton.onClick.AddListener(ChangePasswordOfCurrentUser);
