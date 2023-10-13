@@ -243,6 +243,14 @@ public class LoginManager : MonoBehaviour
 
     private void AddNewUser()
     {
+        string existingKeys = PlayerPrefs.GetString("SavedUsersNames", "");
+
+        if (existingKeys == null)
+            return;
+
+        if (existingKeys.Contains(_newUsername.text))
+            return;
+
         RegisterNewUser(_newUsername.text, _newPassword.text);
         _listOfUsers.AddOptions(new List<OptionData> { new OptionData(_newUsername.text) });
         var index = _listOfUsers.options.Count;
@@ -382,6 +390,9 @@ public class LoginManager : MonoBehaviour
     private void HandleUserDeletion(string username)
     {
         string existingKeys = PlayerPrefs.GetString("SavedUsersNames", "");
+
+        if (existingKeys == null)
+            return;
 
         if (!existingKeys.Contains(username)) 
             return;
