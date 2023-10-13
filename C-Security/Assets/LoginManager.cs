@@ -68,7 +68,7 @@ public class LoginManager : MonoBehaviour
             return;
         }
 
-        string storedPasswordHash = PlayerPrefs.GetString(_userName.text);
+        string storedPasswordHash = PlayerPrefs.GetString(_userName.text + "_password");
 
         if (string.IsNullOrEmpty(storedPasswordHash))
         {
@@ -88,9 +88,6 @@ public class LoginManager : MonoBehaviour
 
             return;
         }
-
-        _loginPanel.SetActive(false);
-        _userAfterLoggedIn.SetActive(true);
 
         _currentUser = new User(_userName.text);
         _passwordMissmatchErrorText.text = "";
@@ -115,7 +112,6 @@ public class LoginManager : MonoBehaviour
             _passwordMissmatchErrorText.text = "First Login. Need to change password";
         }
 
-
         if (HasDatePassed(_userName.text))
         {
             _passwordMissmatchErrorText.text = "Password expired. Need to change";
@@ -134,6 +130,27 @@ public class LoginManager : MonoBehaviour
     {
         _adminPanel.SetActive(true);
 
+        _changeUserName.onClick.RemoveAllListeners();
+        _changeUserPassword.onClick.RemoveAllListeners();
+        _addNewUser.onClick.RemoveAllListeners();
+        _deleteUser.onClick.RemoveAllListeners();
+        _blockUser.onClick.RemoveAllListeners();
+        _setDayLimit.onClick.RemoveAllListeners();
+        _passwordRestriction.onValueChanged.RemoveAllListeners();
+
+        _changeUserName.onClick.AddListener(ChangeSelectedUserName);
+        _changeUserPassword.onClick.AddListener(ChangeSelectedUserPassword);
+        _addNewUser.onClick.AddListener(AddNewUser);
+        _deleteUser.onClick.AddListener(DeleteUser);
+        _blockUser.onClick.AddListener(BlockUser);
+        _setDayLimit.onClick.AddListener(SetDayLimit);
+        _passwordRestriction.onValueChanged.AddListener(SetPasswordRestrictions);
+
+        RefreshListOfUsers();
+    }
+
+    private void RefreshListOfUsers()
+    {
         List<OptionData> options = new List<OptionData>();
         var allUsers = PlayerPrefs.GetString("SavedUsersNames", "").Split(';');
 
@@ -145,26 +162,12 @@ public class LoginManager : MonoBehaviour
             options.Add(new OptionData(userName));
         }
 
+
         _listOfUsers.ClearOptions();
         _listOfUsers.onValueChanged.RemoveAllListeners();
-        _changeUserName.onClick.RemoveAllListeners();
-        _changeUserPassword.onClick.RemoveAllListeners();
-        _addNewUser.onClick.RemoveAllListeners();
-        _deleteUser.onClick.RemoveAllListeners();
-        _blockUser.onClick.RemoveAllListeners();
-        _setDayLimit.onClick.RemoveAllListeners();
-        _passwordRestriction.onValueChanged.RemoveAllListeners();
 
         _listOfUsers.AddOptions(options);
         _listOfUsers.onValueChanged.AddListener(SelectUser);
-
-        _changeUserName.onClick.AddListener(ChangeSelectedUserName);
-        _changeUserPassword.onClick.AddListener(ChangeSelectedUserPassword);
-        _addNewUser.onClick.AddListener(AddNewUser);
-        _deleteUser.onClick.AddListener(DeleteUser);
-        _blockUser.onClick.AddListener(BlockUser);
-        _setDayLimit.onClick.AddListener(SetDayLimit);
-        _passwordRestriction.onValueChanged.AddListener(SetPasswordRestrictions);
     }
 
     private void SetPasswordRestrictions(bool p_isToggled)
@@ -207,22 +210,23 @@ public class LoginManager : MonoBehaviour
 
     private void DeleteUser()
     {
-        PlayerPrefs.DeleteKey(_newUsername.text);
+        PlayerPrefs.DeleteKey(_selectedUser);
         PlayerPrefs.Save();
-
-        _listOfUsers.options.Remove(new OptionData(_selectedUser));
+        HandleUserDeletion(_selectedUser);
+        RefreshListOfUsers();
+        SelectUser(0);
     }
 
     private void ChangeSelectedUserName()
     {
-        var userPassword = PlayerPrefs.GetString(_selectedUser);
+        var userPassword = PlayerPrefs.GetString(_selectedUser + "_password");
         var oldUserName = _listOfUsers.options.ElementAt(_listOfUsers.value).text;
 
         PlayerPrefs.DeleteKey(oldUserName);
         _listOfUsers.options.ElementAt(_listOfUsers.value).text = _newUsername.text;
         _selectedUser = _newUsername.text;
 
-        PlayerPrefs.SetString(_selectedUser, userPassword);
+        PlayerPrefs.SetString(_selectedUser + "_password", userPassword);
         PlayerPrefs.Save();
 
         HandleUserChangeOrAdd(_selectedUser);
@@ -233,15 +237,20 @@ public class LoginManager : MonoBehaviour
     {
         string hashedInputPassword = HashPassword(_newPassword.text);
 
-        PlayerPrefs.SetString(_selectedUser, hashedInputPassword);
+        PlayerPrefs.SetString(_selectedUser + "_password", hashedInputPassword);
         PlayerPrefs.Save();
     }
 
     private void AddNewUser()
     {
         RegisterNewUser(_newUsername.text, _newPassword.text);
-        _selectedUser = _newUsername.text;
         _listOfUsers.AddOptions(new List<OptionData> { new OptionData(_newUsername.text) });
+        var index = _listOfUsers.options.Count;
+
+        if (index == 0)
+            SelectUser(index);
+        else
+            SelectUser(index-1);
     }
 
     private void SelectUser(int p_selectedUserIndex)
@@ -302,13 +311,13 @@ public class LoginManager : MonoBehaviour
         {
             string hashedInputPassword = HashPassword(_confirmPasswordField.text);
 
-            if (PlayerPrefs.GetString(_currentUser.UserName) == hashedInputPassword)
+            if (PlayerPrefs.GetString(_currentUser.UserName + "_password") == hashedInputPassword)
             {
                 _passwordMissmatchErrorText.text = "New password cant be the same as ealier ones";
             }
             else
             {
-                PlayerPrefs.SetString(_currentUser.UserName, HashPassword(_confirmPasswordField.text));
+                PlayerPrefs.SetString(_currentUser.UserName + "_password", HashPassword(_confirmPasswordField.text));
                 PlayerPrefs.SetInt(_currentUser.UserName + "firstLogin", 0);
                 PlayerPrefs.Save();
                 _passwordMissmatchErrorText.text = "Passwords set";
@@ -324,13 +333,13 @@ public class LoginManager : MonoBehaviour
     public void RegisterNewUser(string p_username, string p_password, bool p_asAdmin = false)
     {
         string hashedPassword;
-        string username = null;
+        string username;
 
         if (p_asAdmin)
         {
             hashedPassword = HashPassword("test123");
 
-            PlayerPrefs.SetString("ADMIN", hashedPassword);
+            PlayerPrefs.SetString("ADMIN" + "_password", hashedPassword);
             PlayerPrefs.Save();
 
             username = "ADMIN";
@@ -339,22 +348,24 @@ public class LoginManager : MonoBehaviour
         {
             hashedPassword = HashPassword(p_password);
 
-            PlayerPrefs.SetString(p_username, hashedPassword);
+            PlayerPrefs.SetString(p_username + "_password", hashedPassword);
             PlayerPrefs.SetInt(p_username + "firstLogin", 1); // 1 == true
             PlayerPrefs.Save(); // saving single user with password
 
             username = p_username;
+
+            Debug.Log(PlayerPrefs.GetString(p_username + "_password"));
         }
 
         HandleUserChangeOrAdd(username);
+        Debug.Log(PlayerPrefs.GetString(username + "_password"));
     }
 
     private void HandleUserChangeOrAdd(string username)
     {
-        string updatedKeys = null;
-
         string existingKeys = PlayerPrefs.GetString("SavedUsersNames", "");
 
+        string updatedKeys;
         if (!existingKeys.Contains(username))// might need to add ; for checking similar usernames
             updatedKeys = existingKeys + (string.IsNullOrEmpty(existingKeys) ? "" : ";") + username;
         else
