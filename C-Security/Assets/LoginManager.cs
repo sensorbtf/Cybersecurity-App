@@ -62,7 +62,7 @@ public class LoginManager : MonoBehaviour
 
     private void TryToLogin()
     {
-        if (PlayerPrefs.GetFloat(_userName.text) == 1) // not locked
+        if (PlayerPrefs.GetFloat(_userName.text + "isBlocked") == 1) // not locked
         {
             _errorText.text = "User is blocked!";
             return;
@@ -104,7 +104,7 @@ public class LoginManager : MonoBehaviour
         //_changePasswordButton.onClick.AddListener(UnlockNewPasswordInputs);
         UnlockNewPasswordInputs();
         _logoutButton.onClick.RemoveAllListeners();
-        
+
         _logoutButton.onClick.AddListener(BackToLoginPanel);
 
         if (PlayerPrefs.GetInt(_userName.text + "firstLogin") == 1)
@@ -194,14 +194,14 @@ public class LoginManager : MonoBehaviour
 
     private void BlockUser()
     {
-        if (PlayerPrefs.GetFloat(_selectedUser) == 0) // not locked
+        if (PlayerPrefs.GetFloat(_selectedUser + "isBlocked") == 0) // not locked
         {
-            PlayerPrefs.SetFloat(_selectedUser, 1);
+            PlayerPrefs.SetFloat(_selectedUser + "isBlocked", 1);
             _blockUser.image.color = Color.red;
         }
         else
         {
-            PlayerPrefs.SetFloat(_selectedUser, 0);
+            PlayerPrefs.SetFloat(_selectedUser + "isBlocked", 0);
             _blockUser.image.color = Color.green;
         }
 
@@ -210,7 +210,7 @@ public class LoginManager : MonoBehaviour
 
     private void DeleteUser()
     {
-        PlayerPrefs.DeleteKey(_selectedUser);
+        PlayerPrefs.DeleteKey(_selectedUser + "_password");
         PlayerPrefs.Save();
         HandleUserDeletion(_selectedUser);
         RefreshListOfUsers();
@@ -222,15 +222,15 @@ public class LoginManager : MonoBehaviour
         var userPassword = PlayerPrefs.GetString(_selectedUser + "_password");
         var oldUserName = _listOfUsers.options.ElementAt(_listOfUsers.value).text;
 
-        PlayerPrefs.DeleteKey(oldUserName);
+        PlayerPrefs.DeleteKey(oldUserName + "_password");
         _listOfUsers.options.ElementAt(_listOfUsers.value).text = _newUsername.text;
         _selectedUser = _newUsername.text;
 
         PlayerPrefs.SetString(_selectedUser + "_password", userPassword);
         PlayerPrefs.Save();
 
-        HandleUserChangeOrAdd(_selectedUser);
         HandleUserDeletion(oldUserName);
+        HandleUserChangeOrAdd(_selectedUser);
     }
 
     private void ChangeSelectedUserPassword()
@@ -258,14 +258,14 @@ public class LoginManager : MonoBehaviour
         if (index == 0)
             SelectUser(index);
         else
-            SelectUser(index-1);
+            SelectUser(index - 1);
     }
 
     private void SelectUser(int p_selectedUserIndex)
     {
         _selectedUser = _listOfUsers.options.ElementAt(p_selectedUserIndex).text;
 
-        if (PlayerPrefs.GetFloat(_selectedUser) == 0) // not locked
+        if (PlayerPrefs.GetFloat(_selectedUser + "isBlocked") == 0) // not locked
         {
             _blockUser.image.color = Color.green;
         }
@@ -279,7 +279,7 @@ public class LoginManager : MonoBehaviour
             _passwordRestriction.isOn = true;
         }
         else
-        { 
+        {
             _passwordRestriction.isOn = false;
         }
     }
@@ -382,7 +382,7 @@ public class LoginManager : MonoBehaviour
         if (string.IsNullOrEmpty(updatedKeys))
             Debug.LogError("Huge error in registering");
 
-        PlayerPrefs.SetFloat(username, 0);
+        PlayerPrefs.SetFloat(username + "isBlocked", 0);
         PlayerPrefs.SetString("SavedUsersNames", updatedKeys);
         PlayerPrefs.Save(); // saving full list of users 
     }
@@ -394,7 +394,7 @@ public class LoginManager : MonoBehaviour
         if (existingKeys == null)
             return;
 
-        if (!existingKeys.Contains(username)) 
+        if (!existingKeys.Contains(username))
             return;
 
         List<string> usersList = new List<string>(existingKeys.Split(';'));
@@ -406,9 +406,8 @@ public class LoginManager : MonoBehaviour
         if (string.IsNullOrEmpty(updatedKeys))
             Debug.LogError("Huge error in registering");
 
-        PlayerPrefs.SetFloat(_selectedUser, 0);
         PlayerPrefs.SetString("SavedUsersNames", updatedKeys);
-        PlayerPrefs.Save(); 
+        PlayerPrefs.Save();
     }
 
     private string HashPassword(string password)
@@ -428,7 +427,7 @@ public class LoginManager : MonoBehaviour
             return false;
 
         string[] parts = savedDateString.Split('-');
-        if (parts.Length != 2) return false; 
+        if (parts.Length != 2) return false;
 
         int savedDay = int.Parse(parts[0]);
         int savedMonth = int.Parse(parts[1]);
@@ -436,9 +435,9 @@ public class LoginManager : MonoBehaviour
         DateTime savedDate = new DateTime(DateTime.Now.Year, savedMonth, savedDay);
 
         if (DateTime.Now.Date >= savedDate.Date)
-            return true; 
+            return true;
 
-        return false; 
+        return false;
     }
 
     private bool CheckPasswordRestrictions(string p_password)
