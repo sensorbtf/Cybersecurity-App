@@ -36,6 +36,7 @@ public class LoginManager : MonoBehaviour
     [SerializeField] private Button _confirmChangePasswordButton;
     [SerializeField] private Button _logoutButton;
     [SerializeField] private TextMeshProUGUI _passwordMissmatchErrorText;
+    [SerializeField] private TextMeshProUGUI _timerText;
 
     // Admin Panel
     [SerializeField] private TMP_Dropdown _listOfUsers;
@@ -47,14 +48,21 @@ public class LoginManager : MonoBehaviour
     [SerializeField] private Button _blockUser;
     [SerializeField] private Button _setDayLimit;
     [SerializeField] private Button _createOneUsePassword;
+    [SerializeField] private Button _loginRestrictions;
     [SerializeField] private Toggle _passwordRestriction;
     [SerializeField] private TMP_InputField _numberOfDays;
+    [SerializeField] private TMP_InputField _numberOfTries;
     [SerializeField] private TMP_InputField _newUsername;
     [SerializeField] private TMP_InputField _newPassword;
 
     private User _currentUser;
     private string _selectedUser;
     private int _randomNumber;
+
+    private float _lastInputTime;
+    private float _idleThreshold = 10;
+    private float _timeRemaining = 60;
+    private bool _startCounting = false;
 
     void Start()
     {
@@ -63,9 +71,83 @@ public class LoginManager : MonoBehaviour
 
         BackToLoginPanel();
     }
+    
+    void Update()
+    {
+        if (_currentUser == null)
+            return;
+
+        if (Input.anyKey || Input.GetMouseButtonDown(2) || Input.GetMouseButtonDown(1) || Input.GetMouseButtonDown(0) )
+        {
+            _lastInputTime = Time.time;
+            ResetTimer();
+        }
+
+        if (Time.time - _lastInputTime > _idleThreshold)
+        {
+            Debug.Log("User is idle");
+            _startCounting = true;
+            _timerText.gameObject.SetActive(true);
+        }
+
+        if (!_startCounting)
+            return;
+
+        if (_timeRemaining > 0)
+        {
+            _timeRemaining -= Time.deltaTime;
+            UpdateTimerDisplay(_timeRemaining);
+        }
+        else
+        {
+            BackToLoginPanel();
+        }
+    }
+
+    void ResetTimer()
+    {
+        _startCounting = false;
+        _timeRemaining = 1 * 60; // Reset to 1 minute
+        UpdateTimerDisplay(_timeRemaining);
+        _timerText.gameObject.SetActive(false);
+    }
+
+    void UpdateTimerDisplay(float p_timeToDisplay)
+    {
+        p_timeToDisplay += 1; // Adding 1 to compensate for the display starting at 0
+
+        // Calculate minutes and seconds from the time to display
+        int minutes = Mathf.FloorToInt(p_timeToDisplay / 60);
+        int seconds = Mathf.FloorToInt(p_timeToDisplay % 60);
+
+        // Update the UI Text element
+        _timerText.text = $"Time to logout: {string.Format("{0:00}:{1:00}", minutes, seconds)}";
+    }
 
     private void TryToLogin()
     {
+        string storedPasswordHash = PlayerPrefs.GetString(_userName.text + "_password");
+
+        if (string.IsNullOrEmpty(storedPasswordHash))
+        {
+            _errorText.text = "User not found!";
+            LogActivity(_userName.text, Activity.Login, false);
+            return;
+        }
+
+        var maxTries = PlayerPrefs.GetInt(_userName.text + "setTriesLimit");
+
+        if (maxTries != 0) // ró¿ne od zera == ustawione
+        {
+            var tries = PlayerPrefs.GetInt(_userName.text + "triesLimit");
+
+            if (tries >= maxTries) // jeœli s¹ wiêksze lub równe, blokujemy
+            {
+                _errorText.text = "Too many login attempts. Wait for: " + TryToSetMinuteLimit(_userName.text) + "minutes";
+                return;
+            }
+        }
+
         if (PlayerPrefs.GetFloat(_userName.text + "isBlocked") == 1) // not locked
         {
             _errorText.text = "User is blocked!";
@@ -77,20 +159,12 @@ public class LoginManager : MonoBehaviour
         {
             if (!TryToLoginByOneUsePsswd())
             {
+                LogActivity(_userName.text, Activity.Login, false);
                 return;
             }
         }
         else
         {
-            string storedPasswordHash = PlayerPrefs.GetString(_userName.text + "_password");
-
-            if (string.IsNullOrEmpty(storedPasswordHash))
-            {
-                _errorText.text = "User not found!";
-                LogActivity(_userName.text, Activity.Login, false);
-                return;
-            }
-
             string hashedInputPassword = HashPassword(_password.text);
 
 
@@ -101,7 +175,6 @@ public class LoginManager : MonoBehaviour
             }
             else
             {
-
                 _errorText.text = "Wrong password or login";
                 LogActivity(_userName.text, Activity.Login, false);
                 return;
@@ -122,7 +195,7 @@ public class LoginManager : MonoBehaviour
 
         Debug.Log($"PSWD {rightPassword}");
 
-        double tolerance = 0.02; 
+        double tolerance = 0.02;
         if (isValidNumber && Math.Abs(enteredPassword - rightPassword) < tolerance)
         {
             return true;
@@ -175,6 +248,7 @@ public class LoginManager : MonoBehaviour
         _setDayLimit.onClick.RemoveAllListeners();
         _createOneUsePassword.onClick.RemoveAllListeners();
         _showLogsButton.onClick.RemoveAllListeners();
+        _loginRestrictions.onClick.RemoveAllListeners();
         _passwordRestriction.onValueChanged.RemoveAllListeners();
 
         _changeUserName.onClick.AddListener(ChangeSelectedUserName);
@@ -183,6 +257,7 @@ public class LoginManager : MonoBehaviour
         _deleteUser.onClick.AddListener(DeleteUser);
         _blockUser.onClick.AddListener(BlockUser);
         _setDayLimit.onClick.AddListener(SetDayLimit);
+        _loginRestrictions.onClick.AddListener(SetLoginRestrictions);
         _createOneUsePassword.onClick.AddListener(CreateOneUsePassword);
         _showLogsButton.onClick.AddListener(_logsPopup.ShowPopup);
         _passwordRestriction.onValueChanged.AddListener(SetPasswordRestrictions);
@@ -238,6 +313,25 @@ public class LoginManager : MonoBehaviour
         }
     }
 
+    private void SetLoginRestrictions()
+    {
+
+        if (PlayerPrefs.GetInt(_selectedUser + "setTriesLimit") == 0) // not set so we are setting
+        {
+            int loginAttempts = int.Parse(_numberOfTries.text);
+
+            PlayerPrefs.SetInt(_selectedUser + "setTriesLimit", loginAttempts);
+            LogActivity(_selectedUser, Activity.LoginRestrictionsSet, true);
+            _loginRestrictions.gameObject.GetComponent<Image>().color = Color.green;
+        }
+        else // set so we are unsetting
+        {
+            PlayerPrefs.SetInt(_selectedUser + "setTriesLimit", 0);
+            LogActivity(_selectedUser, Activity.LoginRestrictionsUnset, true);
+            _loginRestrictions.gameObject.GetComponent<Image>().color = Color.white;
+        }
+    }
+
     private void SetDayLimit()
     {
         int daysToAdd = int.Parse(_numberOfDays.text);
@@ -247,7 +341,54 @@ public class LoginManager : MonoBehaviour
         string formattedDate = futureDate.Day + "-" + futureDate.Month;
         PlayerPrefs.SetString(_selectedUser + "LimitDate", formattedDate);
         LogActivity(_selectedUser, Activity.SetDayLimit, true);
+        PlayerPrefs.Save();
     }
+
+    private int TryToSetMinuteLimit(string p_user)
+    {
+        var register = PlayerPrefs.GetString(p_user + "BlockRestrictionTime", "");
+
+        if (!string.IsNullOrEmpty(register))
+            return CalculateMinutesToSpend(p_user);
+
+        int minutesToAdd = 15;
+
+        DateTime futureTime = DateTime.Now.AddMinutes(minutesToAdd);
+        string formattedTime = futureTime.ToString("HH:mm");
+        PlayerPrefs.SetString(p_user + "BlockRestrictionTime", formattedTime);
+        LogActivity(p_user, Activity.SetMinuteLimit, true);
+        PlayerPrefs.Save();
+
+        return 15;
+    }
+
+    private int CalculateMinutesToSpend(string p_userName)
+    {
+        string limitTimeStr = PlayerPrefs.GetString(p_userName + "BlockRestrictionTime");
+
+        DateTime limitTime;
+        if (TimeSpan.TryParse(limitTimeStr, out TimeSpan time))
+        {
+            limitTime = DateTime.Today.Add(time);
+        }
+        else
+        {
+            Debug.LogError("Could not parse the limit time.");
+            return -1; // Return -1 or handle this case as you see fit
+        }
+
+        DateTime now = DateTime.Now;
+
+        if (now > limitTime)
+        {
+            return 0;
+        }
+
+        int minutesToSpend = (int)(limitTime - now).TotalMinutes;
+
+        return minutesToSpend;
+    }
+
 
     private void BlockUser()
     {
@@ -301,9 +442,9 @@ public class LoginManager : MonoBehaviour
         string hashedInputPassword = HashPassword(_newPassword.text);
 
         PlayerPrefs.SetString(_selectedUser + "_password", hashedInputPassword);
+        PlayerPrefs.SetString(_selectedUser + "LimitDate", "");
         PlayerPrefs.Save();
         LogActivity(_selectedUser, Activity.PasswordChange, true);
-
     }
 
     private void AddNewUser()
@@ -337,6 +478,15 @@ public class LoginManager : MonoBehaviour
         else
         {
             _blockUser.image.color = Color.red;
+        }
+
+        if (PlayerPrefs.GetInt(_selectedUser + "setTriesLimit") == 0) 
+        {
+            _loginRestrictions.gameObject.GetComponent<Image>().color = Color.white;
+        }
+        else 
+        {
+            _loginRestrictions.gameObject.GetComponent<Image>().color = Color.green;
         }
 
         if (PlayerPrefs.GetInt(_selectedUser + "restrictions") == 1)
@@ -385,6 +535,7 @@ public class LoginManager : MonoBehaviour
                 _passwordMissmatchErrorText.text = "Passwords set";
 
                 _passwordMissmatchErrorText.color = Color.green;
+                PlayerPrefs.SetString(_currentUser.UserName + "LimitDate", "");
                 LogActivity(_currentUser.UserName, Activity.PasswordChange, true);
             }
         }
@@ -393,8 +544,6 @@ public class LoginManager : MonoBehaviour
             _passwordMissmatchErrorText.text = "Passwords missmatch";
             LogActivity(_currentUser.UserName, Activity.PasswordChange, false);
         }
-
-
     }
 
     public void RegisterNewUser(string p_username, string p_password, bool p_asAdmin = false)
@@ -545,6 +694,21 @@ public class LoginManager : MonoBehaviour
             WasSuccessfull = p_doneRight
         };
 
+        if (typeOfActivity == Activity.Login)
+        {
+            if (!p_doneRight)
+            {
+                var savedTires = PlayerPrefs.GetInt(p_userName + "triesLimit");
+                savedTires++;
+                PlayerPrefs.SetInt(p_userName + "triesLimit", savedTires);
+            }
+            else
+            {
+                PlayerPrefs.SetInt(p_userName + "triesLimit", 0);
+                PlayerPrefs.SetString(p_userName + "BlockRestrictionTime", "");
+            }
+        }
+
         string logFilePath = Path.Combine(Application.persistentDataPath, "activity_log.json");
 
         LogDataList logList = new LogDataList { logDataList = new List<LogData>() };
@@ -560,7 +724,6 @@ public class LoginManager : MonoBehaviour
 
         Debug.Log($"Logged activity for user {p_userName}");
     }
-
 }
 
 [Serializable]
@@ -586,4 +749,7 @@ public enum Activity
     UserUnlocked = 9,
     UserBlocked = 10,
     UserRemoval = 11,
+    LoginRestrictionsSet = 12,
+    SetMinuteLimit = 13,
+    LoginRestrictionsUnset = 14,
 }

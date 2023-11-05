@@ -29,18 +29,7 @@ public class User
         get => _username;
         set => _username = value;
     }
-
-    public bool IsFirstLogin => _isFirstLogin;
-
-    public void Save()
-    { 
-    }
-
-    public void Load()
-    { 
-    }
 }
-
 
 public enum TypeOfUser
 { ADMIN, User }
