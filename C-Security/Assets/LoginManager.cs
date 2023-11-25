@@ -155,7 +155,7 @@ public class LoginManager : MonoBehaviour
             return;
         }
 
-        if (!string.IsNullOrEmpty(_oneUsePassword.text) && PlayerPrefs.GetInt(_userName.text + "oneUsePassword") == 1)
+        if ( PlayerPrefs.GetInt(_userName.text + "oneUsePassword") == 1)
         {
             if (!TryToLoginByOneUsePsswd())
             {
@@ -202,7 +202,7 @@ public class LoginManager : MonoBehaviour
         }
         else
         {
-            _randomNumberForPassword.text = "Wrong one use password";
+            _errorText.text = "Wrong one use password";
             return false;
         }
     }
@@ -270,6 +270,7 @@ public class LoginManager : MonoBehaviour
         _currentUser = null;
         _randomNumber = UnityEngine.Random.Range(0, 100);
         _randomNumberForPassword.text = _randomNumber.ToString();
+        _errorText.text = "";
 
         _adminPanel.SetActive(false);
         _userAfterLoggedIn.SetActive(false);
