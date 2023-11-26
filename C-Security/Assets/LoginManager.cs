@@ -6,10 +6,8 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
 using TMPro;
-using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.UI;
-using static LogsPopup;
 using static TMPro.TMP_Dropdown;
 
 public class LoginManager : MonoBehaviour
@@ -27,12 +25,8 @@ public class LoginManager : MonoBehaviour
     [SerializeField] private TextMeshProUGUI _randomNumberForPassword;
 
     // After Login Panel
-    [SerializeField] private GameObject _changePasswordFieldGo;
     [SerializeField] private TMP_InputField _changePasswordField;
-    [SerializeField] private GameObject _confirmPasswordFieldGo;
     [SerializeField] private TMP_InputField _confirmPasswordField;
-    [SerializeField] private Button _changePasswordButton;
-    [SerializeField] private GameObject _confirmChangePasswordButtonGo;
     [SerializeField] private Button _confirmChangePasswordButton;
     [SerializeField] private Button _logoutButton;
     [SerializeField] private TextMeshProUGUI _passwordMissmatchErrorText;
@@ -40,6 +34,7 @@ public class LoginManager : MonoBehaviour
 
     // Admin Panel
     [SerializeField] private TMP_Dropdown _listOfUsers;
+    [SerializeField] private TMP_Dropdown _listOfRoles;
     [SerializeField] private Button _changeUserName;
     [SerializeField] private Button _showLogsButton;
     [SerializeField] private Button _changeUserPassword;
@@ -49,9 +44,11 @@ public class LoginManager : MonoBehaviour
     [SerializeField] private Button _setDayLimit;
     [SerializeField] private Button _createOneUsePassword;
     [SerializeField] private Button _loginRestrictions;
+    [SerializeField] private Button _setTimeToLogout;
     [SerializeField] private Toggle _passwordRestriction;
     [SerializeField] private TMP_InputField _numberOfDays;
     [SerializeField] private TMP_InputField _numberOfTries;
+    [SerializeField] private TMP_InputField _minutesToLogout;
     [SerializeField] private TMP_InputField _newUsername;
     [SerializeField] private TMP_InputField _newPassword;
 
@@ -67,6 +64,7 @@ public class LoginManager : MonoBehaviour
     void Start()
     {
         RegisterNewUser("ADMIN", "test123", true);
+        
         _loginButton.onClick.AddListener(TryToLogin);
 
         BackToLoginPanel();
@@ -74,10 +72,13 @@ public class LoginManager : MonoBehaviour
     
     void Update()
     {
-        if (_currentUser == null)
+        if (_currentUser == null || PlayerPrefs.GetInt(_currentUser.UserName + "setTimeoutDuration") == 0)
+        {
+            _timerText.gameObject.SetActive(false);
             return;
+        }
 
-        if (Input.anyKey || Input.GetMouseButtonDown(2) || Input.GetMouseButtonDown(1) || Input.GetMouseButtonDown(0) )
+        if (Input.anyKey || Input.GetMouseButtonDown(2) || Input.GetMouseButtonDown(1) || Input.GetMouseButtonDown(0))
         {
             _lastInputTime = Time.time;
             ResetTimer();
@@ -107,20 +108,18 @@ public class LoginManager : MonoBehaviour
     void ResetTimer()
     {
         _startCounting = false;
-        _timeRemaining = 1 * 60; // Reset to 1 minute
+        _timeRemaining = PlayerPrefs.GetInt(_currentUser.UserName + "setTimeoutDuration") * 60; // multiply minutes by seconds
         UpdateTimerDisplay(_timeRemaining);
         _timerText.gameObject.SetActive(false);
     }
 
     void UpdateTimerDisplay(float p_timeToDisplay)
     {
-        p_timeToDisplay += 1; // Adding 1 to compensate for the display starting at 0
+        p_timeToDisplay += 1; 
 
-        // Calculate minutes and seconds from the time to display
         int minutes = Mathf.FloorToInt(p_timeToDisplay / 60);
         int seconds = Mathf.FloorToInt(p_timeToDisplay % 60);
 
-        // Update the UI Text element
         _timerText.text = $"Time to logout: {string.Format("{0:00}:{1:00}", minutes, seconds)}";
     }
 
@@ -137,18 +136,18 @@ public class LoginManager : MonoBehaviour
 
         var maxTries = PlayerPrefs.GetInt(_userName.text + "setTriesLimit");
 
-        if (maxTries != 0) // ró¿ne od zera == ustawione
+        if (maxTries != 0) // rozne od zera == ustawione
         {
             var tries = PlayerPrefs.GetInt(_userName.text + "triesLimit");
 
-            if (tries >= maxTries) // jeœli s¹ wiêksze lub równe, blokujemy
+            if (tries >= maxTries) // jeï¿½li sï¿½ wiï¿½ksze lub rï¿½wne, blokujemy
             {
                 _errorText.text = "Too many login attempts. Wait for: " + TryToSetMinuteLimit(_userName.text) + "minutes";
                 return;
             }
         }
 
-        if (PlayerPrefs.GetFloat(_userName.text + "isBlocked") == 1) // not locked
+        if (Math.Abs(PlayerPrefs.GetFloat(_userName.text + "isBlocked") - 1) < 0.5f) // not locked
         {
             _errorText.text = "User is blocked!";
             LogActivity(_userName.text, Activity.Login, false);
@@ -166,7 +165,6 @@ public class LoginManager : MonoBehaviour
         else
         {
             string hashedInputPassword = HashPassword(_password.text);
-
 
             if (hashedInputPassword == storedPasswordHash)
             {
@@ -258,11 +256,13 @@ public class LoginManager : MonoBehaviour
         _blockUser.onClick.AddListener(BlockUser);
         _setDayLimit.onClick.AddListener(SetDayLimit);
         _loginRestrictions.onClick.AddListener(SetLoginRestrictions);
+        _setTimeToLogout.onClick.AddListener(SetDurationToTimeout);
         _createOneUsePassword.onClick.AddListener(CreateOneUsePassword);
         _showLogsButton.onClick.AddListener(_logsPopup.ShowPopup);
         _passwordRestriction.onValueChanged.AddListener(SetPasswordRestrictions);
 
         RefreshListOfUsers();
+        SetRolesForUsers();
     }
 
     private void BackToLoginPanel()
@@ -289,7 +289,6 @@ public class LoginManager : MonoBehaviour
 
             options.Add(new OptionData(userName));
         }
-
 
         _listOfUsers.ClearOptions();
         _listOfUsers.onValueChanged.RemoveAllListeners();
@@ -331,6 +330,49 @@ public class LoginManager : MonoBehaviour
             LogActivity(_selectedUser, Activity.LoginRestrictionsUnset, true);
             _loginRestrictions.gameObject.GetComponent<Image>().color = Color.white;
         }
+    }
+    
+    private void SetDurationToTimeout()
+    {
+        if (PlayerPrefs.GetInt(_selectedUser + "setTimeoutDuration") == 0) // not set so we are setting
+        {
+            int minutesToTimeout = int.Parse(_minutesToLogout.text);
+
+            PlayerPrefs.SetInt(_selectedUser + "setTimeoutDuration", minutesToTimeout);
+            LogActivity(_selectedUser, Activity.DurationOfTimeout, true);
+            _setTimeToLogout.gameObject.GetComponent<Image>().color = Color.green;
+        }
+        else // set so we are unsetting
+        {
+            PlayerPrefs.SetInt(_selectedUser + "setTimeoutDuration", 0);
+            LogActivity(_selectedUser, Activity.DurationOfTimeout, true);
+            _setTimeToLogout.gameObject.GetComponent<Image>().color = Color.white;
+        }
+    }
+    
+    private void SetRolesForUsers()
+    {
+        List<OptionData> options = new List<OptionData>();
+        
+        options.Add(new OptionData(Roles.None.ToString()));
+        options.Add(new OptionData(Roles.Admin.ToString()));
+        options.Add(new OptionData(Roles.NewUsersAdder.ToString()));
+        options.Add(new OptionData(Roles.LogsSeeker.ToString()));
+        options.Add(new OptionData(Roles.UsersBlocker.ToString()));
+        
+        _listOfRoles.ClearOptions();
+        _listOfRoles.onValueChanged.RemoveAllListeners();
+
+        _listOfRoles.AddOptions(options);
+        _listOfRoles.onValueChanged.AddListener(SelectRole);
+
+        SelectRole(PlayerPrefs.GetInt(_selectedUser + "role"));
+    }
+
+    private void SelectRole(int index = 0)
+    {
+        _listOfRoles.SetValueWithoutNotify(index);
+        PlayerPrefs.SetInt(_selectedUser + "role", index);
     }
 
     private void SetDayLimit()
@@ -389,7 +431,6 @@ public class LoginManager : MonoBehaviour
 
         return minutesToSpend;
     }
-
 
     private void BlockUser()
     {
@@ -489,6 +530,15 @@ public class LoginManager : MonoBehaviour
         {
             _loginRestrictions.gameObject.GetComponent<Image>().color = Color.green;
         }
+        
+        if (PlayerPrefs.GetInt(_selectedUser + "setTimeoutDuration") == 0) 
+        {
+            _setTimeToLogout.gameObject.GetComponent<Image>().color = Color.white;
+        }
+        else 
+        {
+            _setTimeToLogout.gameObject.GetComponent<Image>().color = Color.green;
+        }
 
         if (PlayerPrefs.GetInt(_selectedUser + "restrictions") == 1)
         {
@@ -498,8 +548,10 @@ public class LoginManager : MonoBehaviour
         {
             _passwordRestriction.isOn = false;
         }
+        
+        SelectRole(PlayerPrefs.GetInt(_selectedUser + "role"));
     }
-
+    
     private void UnlockNewPasswordInputs()
     {
         _confirmChangePasswordButton.onClick.RemoveAllListeners();
@@ -547,7 +599,7 @@ public class LoginManager : MonoBehaviour
         }
     }
 
-    public void RegisterNewUser(string p_username, string p_password, bool p_asAdmin = false)
+    private void RegisterNewUser(string p_username, string p_password, bool p_asAdmin = false)
     {
         string hashedPassword;
         string username;
@@ -555,11 +607,11 @@ public class LoginManager : MonoBehaviour
         if (p_asAdmin)
         {
             hashedPassword = HashPassword("test123");
+            username = "ADMIN";
 
             PlayerPrefs.SetString("ADMIN" + "_password", hashedPassword);
+            PlayerPrefs.SetInt(username + "role", (int)Roles.Admin);
             PlayerPrefs.Save();
-
-            username = "ADMIN";
         }
         else
         {
@@ -568,6 +620,7 @@ public class LoginManager : MonoBehaviour
             PlayerPrefs.SetString(p_username + "_password", hashedPassword);
             PlayerPrefs.SetInt(p_username + "firstLogin", 1); // 1 == true
             PlayerPrefs.SetInt(p_username + "oneUsePassword", 0); // 0 == false
+            PlayerPrefs.SetInt(p_username + "role", (int)Roles.None);
             PlayerPrefs.Save(); // saving single user with password
 
             username = p_username;
@@ -690,10 +743,11 @@ public class LoginManager : MonoBehaviour
         var logData = new LogData
         {
             UserName = p_userName,
-            DateTime = DateTime.Now,
             TypeOfActivity = typeOfActivity,
             WasSuccessfull = p_doneRight
         };
+        
+        logData.SetCurrentDateTime();
 
         if (typeOfActivity == Activity.Login)
         {
@@ -731,12 +785,17 @@ public class LoginManager : MonoBehaviour
 public struct LogData
 {
     public string UserName;
-    public DateTime DateTime;
+    public string  DateTime;
     public Activity TypeOfActivity;
     public bool WasSuccessfull;
+    
+    public void SetCurrentDateTime()
+    {
+        DateTime = System.DateTime.Now.ToString("o"); // ISO 8601 format
+    }
 }
 
-[System.Serializable]
+[Serializable]
 public class LogDataList
 {
     public List<LogData> logDataList;
@@ -753,4 +812,14 @@ public enum Activity
     LoginRestrictionsSet = 12,
     SetMinuteLimit = 13,
     LoginRestrictionsUnset = 14,
+    DurationOfTimeout
+}
+
+public enum Roles
+{
+    None,
+    Admin,
+    NewUsersAdder,
+    LogsSeeker,
+    UsersBlocker
 }

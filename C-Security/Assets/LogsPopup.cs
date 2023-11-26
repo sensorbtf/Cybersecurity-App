@@ -24,7 +24,7 @@ public class LogsPopup : MonoBehaviour
             var newLogRefs = newLogGo.GetComponent<SingleLogPrefabRefs>();
 
             newLogRefs.Username.text = log.UserName;
-            newLogRefs.DateTime.text = log.DateTime.ToString();
+            newLogRefs.DateTime.text = log.DateTime;
             newLogRefs.ActivityType.text = log.TypeOfActivity.ToString();
             newLogRefs.WasSuccessfull.text = log.WasSuccessfull.ToString();
         }

@@ -27,7 +27,6 @@ public class User
     public string UserName
     {
         get => _username;
-        set => _username = value;
     }
 }
 
