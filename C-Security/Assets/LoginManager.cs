@@ -120,6 +120,11 @@ public class LoginManager : MonoBehaviour
         int minutes = Mathf.FloorToInt(p_timeToDisplay / 60);
         int seconds = Mathf.FloorToInt(p_timeToDisplay % 60);
 
+        if (Math.Abs(p_timeToDisplay - PlayerPrefs.GetInt(_selectedUser + "setTimeoutDuration")) < 0.5f)
+        {
+            PlayerPrefs.SetInt(_selectedUser + "setTimeoutDuration", 0);
+        }
+        
         _timerText.text = $"Time to logout: {string.Format("{0:00}:{1:00}", minutes, seconds)}";
     }
 
@@ -267,11 +272,13 @@ public class LoginManager : MonoBehaviour
 
     private void BackToLoginPanel()
     {
+        LogActivity(_currentUser.UserName, Activity.Logout, true);
+
         _currentUser = null;
         _randomNumber = UnityEngine.Random.Range(0, 100);
         _randomNumberForPassword.text = _randomNumber.ToString();
         _errorText.text = "";
-
+        
         _adminPanel.SetActive(false);
         _userAfterLoggedIn.SetActive(false);
         _loginPanel.SetActive(true);
@@ -373,6 +380,8 @@ public class LoginManager : MonoBehaviour
     {
         _listOfRoles.SetValueWithoutNotify(index);
         PlayerPrefs.SetInt(_selectedUser + "role", index);
+        
+        LogActivity(_selectedUser, Activity.NewRole, true);
     }
 
     private void SetDayLimit()
@@ -417,13 +426,14 @@ public class LoginManager : MonoBehaviour
         else
         {
             Debug.LogError("Could not parse the limit time.");
-            return -1; // Return -1 or handle this case as you see fit
+            return -1; 
         }
 
         DateTime now = DateTime.Now;
 
         if (now > limitTime)
         {
+            PlayerPrefs.SetString(p_userName + "BlockRestrictionTime", "");
             return 0;
         }
 
@@ -812,7 +822,8 @@ public enum Activity
     LoginRestrictionsSet = 12,
     SetMinuteLimit = 13,
     LoginRestrictionsUnset = 14,
-    DurationOfTimeout
+    DurationOfTimeout = 15,
+    NewRole = 15,
 }
 
 public enum Roles
