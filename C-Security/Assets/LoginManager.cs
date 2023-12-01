@@ -67,7 +67,27 @@ public class LoginManager : MonoBehaviour
         
         _loginButton.onClick.AddListener(TryToLogin);
 
-        BackToLoginPanel();
+        _currentUser = null;
+        _randomNumber = UnityEngine.Random.Range(0, 100);
+        _randomNumberForPassword.text = _randomNumber.ToString();
+        _errorText.text = "";
+
+        _adminPanel.SetActive(false);
+        _userAfterLoggedIn.SetActive(false);
+        _loginPanel.SetActive(true);
+
+        //string logFilePath = Path.Combine(Application.persistentDataPath, "activity_log.json");
+
+        //if (File.Exists(logFilePath))
+        //{
+        //    // Clear the log file
+        //    File.WriteAllText(logFilePath, "");
+        //    Debug.Log("Log activities cleared.");
+        //}
+        //else
+        //{
+        //    Debug.Log("Log file not found.");
+        //}
     }
     
     void Update()
@@ -123,8 +143,9 @@ public class LoginManager : MonoBehaviour
         if (Math.Abs(p_timeToDisplay - PlayerPrefs.GetInt(_selectedUser + "setTimeoutDuration")) < 0.5f)
         {
             PlayerPrefs.SetInt(_selectedUser + "setTimeoutDuration", 0);
+            BackToLoginPanel();
         }
-        
+
         _timerText.text = $"Time to logout: {string.Format("{0:00}:{1:00}", minutes, seconds)}";
     }
 
@@ -143,7 +164,12 @@ public class LoginManager : MonoBehaviour
 
         if (maxTries != 0) // rozne od zera == ustawione
         {
-            var tries = PlayerPrefs.GetInt(_userName.text + "triesLimit");
+            if (TryToSetMinuteLimit(_userName.text) <= 0)
+            {
+                PlayerPrefs.SetInt(_userName.text + "triesLimit", 0);
+            }
+
+            var tries = PlayerPrefs.GetInt(_userName.text + "triesLimit");           
 
             if (tries >= maxTries) // je�li s� wi�ksze lub r�wne, blokujemy
             {
@@ -756,7 +782,7 @@ public class LoginManager : MonoBehaviour
             TypeOfActivity = typeOfActivity,
             WasSuccessfull = p_doneRight
         };
-        
+
         logData.SetCurrentDateTime();
 
         if (typeOfActivity == Activity.Login)
@@ -823,7 +849,7 @@ public enum Activity
     SetMinuteLimit = 13,
     LoginRestrictionsUnset = 14,
     DurationOfTimeout = 15,
-    NewRole = 15,
+    NewRole = 16,
 }
 
 public enum Roles
