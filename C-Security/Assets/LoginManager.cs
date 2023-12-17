@@ -60,7 +60,10 @@ public class LoginManager : MonoBehaviour
     private float _idleThreshold = 10;
     private float _timeRemaining = 60;
     private bool _startCounting = false;
+    private bool _canLoginCaptcha = false;
 
+    public event Action OnBackToLoadingPanel;
+    
     void Start()
     {
         RegisterNewUser("ADMIN", "test123", true);
@@ -88,10 +91,14 @@ public class LoginManager : MonoBehaviour
         //{
         //    Debug.Log("Log file not found.");
         //}
+
+        BackToLoginPanel();
     }
     
     void Update()
     {
+        _loginButton.interactable = _canLoginCaptcha;
+        
         if (_currentUser == null || PlayerPrefs.GetInt(_currentUser.UserName + "setTimeoutDuration") == 0)
         {
             _timerText.gameObject.SetActive(false);
@@ -143,9 +150,8 @@ public class LoginManager : MonoBehaviour
         if (Math.Abs(p_timeToDisplay - PlayerPrefs.GetInt(_selectedUser + "setTimeoutDuration")) < 0.5f)
         {
             PlayerPrefs.SetInt(_selectedUser + "setTimeoutDuration", 0);
-            BackToLoginPanel();
         }
-
+        
         _timerText.text = $"Time to logout: {string.Format("{0:00}:{1:00}", minutes, seconds)}";
     }
 
@@ -298,7 +304,10 @@ public class LoginManager : MonoBehaviour
 
     private void BackToLoginPanel()
     {
-        LogActivity(_currentUser.UserName, Activity.Logout, true);
+        if (_currentUser != null)
+        {
+            LogActivity(_currentUser.UserName, Activity.Logout, true);
+        }
 
         _currentUser = null;
         _randomNumber = UnityEngine.Random.Range(0, 100);
@@ -308,6 +317,8 @@ public class LoginManager : MonoBehaviour
         _adminPanel.SetActive(false);
         _userAfterLoggedIn.SetActive(false);
         _loginPanel.SetActive(true);
+
+        OnBackToLoadingPanel?.Invoke();
     }
 
     private void RefreshListOfUsers()
@@ -782,7 +793,7 @@ public class LoginManager : MonoBehaviour
             TypeOfActivity = typeOfActivity,
             WasSuccessfull = p_doneRight
         };
-
+        
         logData.SetCurrentDateTime();
 
         if (typeOfActivity == Activity.Login)
@@ -814,6 +825,11 @@ public class LoginManager : MonoBehaviour
         File.WriteAllText(logFilePath, jsonToSave);
 
         Debug.Log($"Logged activity for user {p_userName}");
+    }
+
+    public void HandleCaptcha(bool isRight)
+    {
+        _canLoginCaptcha = isRight;
     }
 }
 
