@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Local HTML with reCAPTCHA</title>
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.1.0/jquery.min.js"></script>
+    <script type="text/javascript" src="https://www.google.com/recaptcha/api.js"></script>
+    <script type="text/javascript" src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="d-flex justify-content-center">
+    <section class="text-gray-600 body-font">
+        <div class="container flex flex-wrap px-5 py-24 mx-auto items-center">
+            <div class="md:w-1/2 md:pr-12 md:py-8 md:border-r md:border-b-0 mb-10 md:mb-0 pb-10 border-b border-gray-200">
+                <img  class=""  src="data:image/png;base64,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"alt=".">
+                <h1 class="sm:text-3xl text-2xl font-medium title-font mb-2 text-gray-900 px-6">CYBER SECURITY  (lab exercise №3)</h1>
+                <p class="leading-relaxed text-base px-6">Using Google ReCAPTCHA in password change.</p>
+                <button onclick="simulateSuccessfulResponse()" class="text-indigo-500 mt-4 px-6">Simulate Success</button>
+                <p class="px-6 mt-4">Response:</p>
+                <p id="displayStoredResponse" class="px-6">success</p>
+            </div>
+            <div class="flex flex-col md:w-1/2 md:pl-12 px-6">
+                <h2 class="title-font font-semibold text-gray-800 tracking-wider text-sm mb-3">Use Google reCAPTCHA:</h2>
+                <div class="recaptcha" id="g-recaptcha1"></div>
+            </div>
+        </div>
+    </section>
+    <script>
+       var storedResponse;
+       function simulateSuccessfulResponse() {
+            var simulatedResponse = 'success';
+            storedResponse = simulatedResponse;
+            console.log('Response stored:', storedResponse);
+            displayStoredResponse(); 
+        }
+
+        function renderRecaptchaWithDelay() {
+            setTimeout(function () {
+                grecaptcha.render('g-recaptcha1', {
+                    'sitekey': '6LdVkwkUAAAAACeeETRX--v9Js0vWyjQOTIZxxeB',
+                    'theme': 'light',
+                    'callback': handleReCAPTCHA
+                });
+            }, 2000);
+        }
+
+        function handleReCAPTCHA(response) {
+            storedResponse = response;
+            console.log('Google response stored:', storedResponse);
+            displayStoredResponse(); 
+        }
+
+        function displayStoredResponse() {
+            var displayElement = document.getElementById('displayStoredResponse');
+            displayElement.textContent = storedResponse;
+        }
+
+        renderRecaptchaWithDelay();     
+    </script>
+</body>
+</html>
